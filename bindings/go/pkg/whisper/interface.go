@@ -45,6 +45,7 @@ type Context interface {
 	SetMaxSegmentLength(uint)     // Set max segment length in characters
 	SetTokenTimestamps(bool)      // Set token timestamps flag
 	SetMaxTokensPerSegment(uint)  // Set max tokens per segment (0 = no limit)
+	SetSuppressNonSpeechTokens(bool)
 
 	// Process mono audio data and return any errors.
 	// If defined, newly generated segments are passed to the

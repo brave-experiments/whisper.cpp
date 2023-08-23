@@ -141,6 +141,9 @@ func (context *context) SetTokenTimestamps(b bool) {
 func (context *context) SetMaxTokensPerSegment(n uint) {
 	context.params.SetMaxTokensPerSegment(int(n))
 }
+func (context *context) SetSuppressNonSpeechTokens(b bool) {
+	context.params.SetSuppressNonSpeechTokens(b)
+}
 
 // ResetTimings resets the mode timings. Should be called before processing
 func (context *context) ResetTimings() {
