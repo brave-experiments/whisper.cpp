@@ -2,13 +2,12 @@ package whisper
 
 import (
 	"fmt"
-	"io"
 	"runtime"
 	"strings"
 	"time"
 
 	// Bindings
-	whisper "github.com/ggerganov/whisper.cpp/bindings/go"
+	whisper "github.com/boocmp/whisper.cpp/bindings/go"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -20,8 +19,20 @@ type context struct {
 	params whisper.Params
 }
 
+type state struct {
+	st *whisper.State
+}
+
+func (s *state) Close() error {
+	if s.st != nil {
+		return s.st.Close()
+	}
+	return nil
+}
+
 // Make sure context adheres to the interface
 var _ Context = (*context)(nil)
+var _ State = (*state)(nil)
 
 ///////////////////////////////////////////////////////////////////////////////
 // LIFECYCLE
@@ -37,6 +48,12 @@ func newContext(model *model, params whisper.Params) (Context, error) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // PUBLIC METHODS
+
+func (context *context) NewState() State {
+	s := new(state)
+	s.st = context.model.ctx.Whisper_init_state()
+	return s
+}
 
 // Set the language to use for speech recognition.
 func (context *context) SetLanguage(lang string) error {
@@ -82,7 +99,7 @@ func (context *context) SetSpeedup(v bool) {
 }
 
 func (context *context) SetSplitOnWord(v bool) {
-        context.params.SetSplitOnWord(v)
+	context.params.SetSplitOnWord(v)
 }
 
 // Set number of threads to use
@@ -144,82 +161,27 @@ func (context *context) SystemInfo() string {
 	)
 }
 
-// Use mel data at offset_ms to try and auto-detect the spoken language
-// Make sure to call whisper_pcm_to_mel() or whisper_set_mel() first.
-// Returns the probabilities of all languages.
-func (context *context) WhisperLangAutoDetect(offset_ms int, n_threads int) ([]float32, error) {
-	langProbs, err := context.model.ctx.Whisper_lang_auto_detect(offset_ms, n_threads)
-	if err != nil {
-		return nil, err
-	}
-	return langProbs, nil
-}
-
 // Process new sample data and return any errors
 func (context *context) Process(
+	s State,
 	data []float32,
-	callNewSegment SegmentCallback,
-	callProgress ProgressCallback,
-) error {
+) ([]Segment, error) {
 	if context.model.ctx == nil {
-		return ErrInternalAppError
-	}
-	// If the callback is defined then we force on single_segment mode
-	if callNewSegment != nil {
-		context.params.SetSingleSegment(true)
+		return nil, ErrInternalAppError
 	}
 
-	// We don't do parallel processing at the moment
-	processors := 0
-	if processors > 1 {
-		if err := context.model.ctx.Whisper_full_parallel(context.params, data, processors, nil, func(new int) {
-			if callNewSegment != nil {
-				num_segments := context.model.ctx.Whisper_full_n_segments()
-				s0 := num_segments - new
-				for i := s0; i < num_segments; i++ {
-					callNewSegment(toSegment(context.model.ctx, i))
-				}
-			}
-		}); err != nil {
-			return err
-		}
-	} else if err := context.model.ctx.Whisper_full(context.params, data, nil, func(new int) {
-		if callNewSegment != nil {
-			num_segments := context.model.ctx.Whisper_full_n_segments()
-			s0 := num_segments - new
-			for i := s0; i < num_segments; i++ {
-				callNewSegment(toSegment(context.model.ctx, i))
-			}
-		}
-	}, func(progress int) {
-		if callProgress != nil {
-			callProgress(progress)
-		}
-	}); err != nil {
-		return err
+	if err := context.model.ctx.Whisper_full_with_state(s.(*state).st, context.params, data); err != nil {
+		return nil, err
+	}
+
+	num_segments := s.(*state).st.Whisper_full_n_segments()
+	segments := make([]Segment, num_segments)
+	for i := 0; i < num_segments; i++ {
+		segments[i] = toSegment(context.model.ctx, s.(*state).st, i)
 	}
 
 	// Return success
-	return nil
-}
-
-// Return the next segment of tokens
-func (context *context) NextSegment() (Segment, error) {
-	if context.model.ctx == nil {
-		return Segment{}, ErrInternalAppError
-	}
-	if context.n >= context.model.ctx.Whisper_full_n_segments() {
-		return Segment{}, io.EOF
-	}
-
-	// Populate result
-	result := toSegment(context.model.ctx, context.n)
-
-	// Increment the cursor
-	context.n++
-
-	// Return success
-	return result, nil
+	return segments, nil
 }
 
 // Test for text tokens
@@ -284,25 +246,25 @@ func (context *context) IsLANG(t Token, lang string) bool {
 ///////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
-func toSegment(ctx *whisper.Context, n int) Segment {
+func toSegment(ctx *whisper.Context, state *whisper.State, n int) Segment {
 	return Segment{
 		Num:    n,
-		Text:   strings.TrimSpace(ctx.Whisper_full_get_segment_text(n)),
-		Start:  time.Duration(ctx.Whisper_full_get_segment_t0(n)) * time.Millisecond * 10,
-		End:    time.Duration(ctx.Whisper_full_get_segment_t1(n)) * time.Millisecond * 10,
-		Tokens: toTokens(ctx, n),
+		Text:   strings.TrimSpace(state.Whisper_full_get_segment_text(n)),
+		Start:  time.Duration(state.Whisper_full_get_segment_t0(n)) * time.Millisecond * 10,
+		End:    time.Duration(state.Whisper_full_get_segment_t1(n)) * time.Millisecond * 10,
+		Tokens: toTokens(ctx, state, n),
 	}
 }
 
-func toTokens(ctx *whisper.Context, n int) []Token {
-	result := make([]Token, ctx.Whisper_full_n_tokens(n))
+func toTokens(ctx *whisper.Context, state *whisper.State, n int) []Token {
+	result := make([]Token, state.Whisper_full_n_tokens(n))
 	for i := 0; i < len(result); i++ {
-		data := ctx.Whisper_full_get_token_data(n, i)
+		data := state.Whisper_full_get_token_data(n, i)
 
 		result[i] = Token{
-			Id:    int(ctx.Whisper_full_get_token_id(n, i)),
-			Text:  ctx.Whisper_full_get_token_text(n, i),
-			P:     ctx.Whisper_full_get_token_p(n, i),
+			Id:    int(state.Whisper_full_get_token_id(n, i)),
+			Text:  state.Whisper_full_get_token_text(ctx, n, i),
+			P:     state.Whisper_full_get_token_p(n, i),
 			Start: time.Duration(data.T0()) * time.Millisecond * 10,
 			End:   time.Duration(data.T1()) * time.Millisecond * 10,
 		}

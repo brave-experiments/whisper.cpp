@@ -7,7 +7,7 @@ import (
 	"time"
 
 	// Packages
-	whisper "github.com/ggerganov/whisper.cpp/bindings/go/pkg/whisper"
+	whisper "github.com/boocmp/whisper.cpp/bindings/go/pkg/whisper"
 )
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -153,4 +153,5 @@ func registerFlags(flag *Flags) {
 	flag.Bool("tokens", false, "Display tokens")
 	flag.Bool("colorize", false, "Colorize tokens")
 	flag.String("out", "", "Output format (srt, none or leave as empty string)")
+	flag.Int("states", 1, "Number of parallel states")
 }
