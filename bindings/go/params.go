@@ -122,6 +122,7 @@ func (p *Params) SetSuppressNonSpeechTokens(b bool) {
 	p.suppress_non_speech_tokens = toBool(b)
 }
 
+
 ///////////////////////////////////////////////////////////////////////////////
 // PRIVATE METHODS
 
