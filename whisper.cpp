@@ -3459,7 +3459,7 @@ struct whisper_full_params whisper_full_default_params(enum whisper_sampling_str
 
         /*.translate         =*/ false,
         /*.no_context        =*/ true,
-        /*.single_segment    =*/ false,
+        /*.single_segment    =*/ true,
         /*.print_special     =*/ false,
         /*.print_progress    =*/ true,
         /*.print_realtime    =*/ false,
