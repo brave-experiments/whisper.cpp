@@ -3458,7 +3458,7 @@ struct whisper_full_params whisper_full_default_params(enum whisper_sampling_str
         /*.duration_ms       =*/ 0,
 
         /*.translate         =*/ false,
-        /*.no_context        =*/ true,
+        /*.no_context        =*/ false,
         /*.single_segment    =*/ true,
         /*.print_special     =*/ false,
         /*.print_progress    =*/ true,
