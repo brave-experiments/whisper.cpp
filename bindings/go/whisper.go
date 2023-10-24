@@ -9,7 +9,7 @@ import (
 // CGO
 
 /*
-#cgo LDFLAGS: -lwhisper -lm -lstdc++ -lcudart -L/usr/local/cuda/lib64 -L/opt/cuda/lib64 -L$(CUDA_PATH)/targets/x86_64-linux/lib
+#cgo LDFLAGS: -lwhisper -lm -lstdc++ -L/usr/local/cuda/lib64 -lcudart -lcublas
 #cgo darwin LDFLAGS: -framework Accelerate
 #include <whisper.h>
 #include <stdlib.h>
