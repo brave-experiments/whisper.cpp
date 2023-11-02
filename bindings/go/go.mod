@@ -1,4 +1,4 @@
-module github.com/boocmp/whisper.cpp/bindings/go
+module github.com/brave-experiments/whisper.cpp/bindings/go
 
 go 1.20
 

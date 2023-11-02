@@ -7,7 +7,7 @@ import (
 	"flag"
 
 	// Package imports
-	whisper "github.com/boocmp/whisper.cpp/bindings/go/pkg/whisper"
+	whisper "github.com/brave-experiments/whisper.cpp/go/pkg/whisper"
 	wav "github.com/go-audio/wav"
 )
 
